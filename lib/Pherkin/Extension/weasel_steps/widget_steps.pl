@@ -13,9 +13,9 @@ use warnings;
 use Test::BDD::Cucumber::StepFile;
 
 
-Then qr/I should see a (radio button|textbox|password box) "(.*)"/, sub {
-    my $want_type = $1;
-    my $label = $2;
+Then qr/I should see a (radio button|textbox|password box) (['"])(.*)\1/, sub {
+    my $want_type = $2;
+    my $label = $3;
     my $element = S->{ext_wsl}->page->find('*labeled', text => $label);
 
     my %element_type = (
@@ -30,9 +30,9 @@ Then qr/I should see a (radio button|textbox|password box) "(.*)"/, sub {
        "$want_type tag type att matches $element_type{$want_type}");
 };
 
-Then qr/I should see a (dropdown|combobox) "(.*)"/, sub {
-    my $want_type = $1;
-    my $label = $2;
+Then qr/I should see a (dropdown|combobox) (['"])(.*)\1/, sub {
+    my $want_type = $2;
+    my $label = $3;
     my $element = S->{ext_wsl}->page->find('*labeled', text => $label);
 
     my %expect_tag_name = (
@@ -44,8 +44,8 @@ Then qr/I should see a (dropdown|combobox) "(.*)"/, sub {
        "$want_type tag name is '$expect_tag_name{$want_type}'");
 };
 
-Then qr/I should see "(.*)"/, sub {
-    my $want_text = $1;
+Then qr/I should see (['"])(.*)\1/, sub {
+    my $want_text = $2;
 
     my $elements = S->{ext_wsl}->page->find('*contains', text => $want_text);
     my $count = scalar(@$elements);
@@ -56,17 +56,17 @@ Then qr/I should see "(.*)"/, sub {
     ok($count, "Found $count elements containing '$want_text'");
 };
 
-Then qr/I should see a button "(.*)"/, sub {
-    my $button_text = $1;
+Then qr/I should see a button (['"])(.*)\1/, sub {
+    my $button_text = $2;
 
     my $btn = S->{ext_wsl}->page->find('*button', text => $button_text);
     ok($btn, "found button containing the text '$button_text'");
 };
 
 
-Then qr/I should see a drop down "(.*)"( with these items:)?/, sub {
-    my $label_text = $1;
-    my $want_values = $2;
+Then qr/I should see a drop down (['"])(.*)\1( with these items:)?/, sub {
+    my $label_text = $2;
+    my $want_values = $3;
 
     my $select = S->{ext_wsl}->page->find('*select', label => $label_text);
     ok($select, "Found the drop down with label '$label_text'");
@@ -85,24 +85,24 @@ Then qr/I should see these fields:/, sub {
         for (@{ C->data });
 };
 
-When qr/I press "(.*)"/, sub {
-    my $button_text = $1;
+When qr/I press (['"])(.*)\1/, sub {
+    my $button_text = $2;
 
     S->{ext_wsl}->page->find('*button', text => $button_text)->click;
 };
 
-When qr/I select "(.*)" from the drop down "(.*)"/, sub {
-    my $value = $1;
-    my $label = $2;
+When qr/I select (['"])(.*)\1 from the drop down (['"])(.*)\3/, sub {
+    my $value = $2;
+    my $label = $4;
 
     S->{ext_wsl}->page->find('*labeled', text => $label)
         ->select_option($value);
 };
 
-When qr/I enter (([^"].*)|"(.*)") into "(.*)"/, sub {
+When qr/I enter (([^"].*)|"(.*)") into (['"])(.*)\4/, sub {
     my $param = $2;
     my $value = $3;
-    my $label = $4;
+    my $label = $5;
 
     my $element = S->{ext_wsl}->session->find(
         S->{ext_wsl}->session->page,
