@@ -5,7 +5,7 @@ Pherkin::Extension::Weasel - Pherkin extension for web-testing
 
 =head1 VERSION
 
-0.07
+0.08
 
 =head1 SYNOPSIS
 
@@ -45,7 +45,7 @@ package Pherkin::Extension::Weasel;
 use strict;
 use warnings;
 
-our $VERSION = '0.07';
+our $VERSION = '0.08';
 
 
 use File::Share ':all';
@@ -98,7 +98,13 @@ sub _flush_log {
     my $log = $self->_log;
     return if ! $log || ! $log->{feature};
 
-    my $f = md5_hex($log->{feature}->{filename}) . '.html';
+    my $f = $log->{feature}->{filename};
+    if ( $f ) {
+        $f =~ s/\//_/g;
+        $f =~ s/\.feature/.html/g;
+    } else {
+        $f = md5_hex($log->{feature}->{title}) . '.html';
+    }
     $log->{template}->process(
         $self->feature_template,
         { %{$log} }, # using the $log object directly destroys it...
@@ -183,7 +189,7 @@ sub pre_feature {
         my $feature_log = {
             scenarios => [],
             title => $feature->name,
-            filename => $feature->document->filename,
+            filename => $feature->{document}->{filename},
             satisfaction => join("\n",
                                  map { $_->content }
                                  @{$feature->satisfaction})
@@ -202,8 +208,8 @@ sub post_feature {
 
     my $log = $self->_log;
     if ($log) {
-        $self->_flush_log;
         $log->{feature} = undef;
+        $self->_flush_log;
     }
 }
 
@@ -241,8 +247,8 @@ sub post_scenario {
 
     my $log = $self->_log;
     if ($log) {
-        $self->_flush_log;
         $log->{scenario} = undef;
+        $self->_flush_log;
     }
 
     $stash->{ext_wsl}->stop
