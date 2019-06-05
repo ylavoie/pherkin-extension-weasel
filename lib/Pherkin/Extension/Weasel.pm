@@ -5,7 +5,7 @@ Pherkin::Extension::Weasel - Pherkin extension for web-testing
 
 =head1 VERSION
 
-0.08
+0.09
 
 =head1 SYNOPSIS
 
@@ -45,8 +45,7 @@ package Pherkin::Extension::Weasel;
 use strict;
 use warnings;
 
-our $VERSION = '0.08';
-
+our $VERSION = '0.09';
 
 use File::Share ':all';
 use Digest::MD5 qw(md5_hex);
@@ -100,12 +99,6 @@ sub _flush_log {
     return if ! $log || ! $log->{feature};
 
     my $f = $log->{feature}->{filename};
-    if ( $f ) {
-        $f =~ s/\//_/g;
-        $f =~ s/\.feature/.html/g;
-    } else {
-        $f = md5_hex($log->{feature}->{title}) . '.html';
-    }
     $log->{template}->process(
         $self->feature_template,
         { %{$log} }, # using the $log object directly destroys it...
@@ -183,10 +176,14 @@ sub pre_feature {
     my ($self, $feature, $feature_stash) = @_;
 
     my $log = $self->_log;
+    my $f = $feature->{document}->{filename} // md5_hex($feature->{name});
+    $f =~ s/\//_/g;
+    $f =~ s/\.feature//g;
+    $feature_stash->{prefix} = $f;
     if ($log) {
         my $feature_log = {
             scenarios => [],
-            filename => $feature->{document}->{filename},
+            filename => $f,
             title => $feature->name,
             satisfaction => join("\n",
                                  map { $_->content }
@@ -209,6 +206,7 @@ sub post_feature {
         $log->{feature} = undef;
         $self->_flush_log;
     }
+    $feature_stash->{prefix} = undef;
 }
 
 =item pre_scenario
@@ -218,6 +216,12 @@ sub post_feature {
 sub pre_scenario {
     my ($self, $scenario, $feature_stash, $stash) = @_;
 
+    my $i = 1;
+    # Compute step numbers
+    $stash->{step_lines} = {};
+    foreach (@{$scenario->{steps}}) {
+        $stash->{step_lines}->{$_->{line}->{number}} = $i++;
+    }
     if (grep { $_ eq 'weasel'} @{$scenario->tags}) {
         $stash->{ext_wsl} = $self->_weasel->session;
         $self->_weasel->session->start;
@@ -232,7 +236,7 @@ sub pre_scenario {
             $log->{scenario} = $scenario_log;
         }
 
-        $self->_save_screenshot("scenario", "pre");
+        $self->_save_screenshot("scenario", "pre", $feature_stash->{prefix});
     }
 }
 
@@ -241,7 +245,7 @@ sub post_scenario {
     my ($self, $scenario, $feature_stash, $stash) = @_;
 
     return if ! defined $stash->{ext_wsl};
-    $self->_save_screenshot("scenario", "post");
+    $self->_save_screenshot("scenario", "post", $feature_stash->{prefix});
 
     my $log = $self->_log;
     if ($log) {
@@ -256,12 +260,16 @@ sub pre_step {
     my ($self, $step, $context) = @_;
 
     return if ! defined $context->stash->{scenario}->{ext_wsl};
-    $self->_save_screenshot("step", "pre");
+    my $n = $context->{step}->{line}->{number}; # Get line number
+    $n = defined $n  # Get step number
+       ? ( $context->stash->{scenario}->{step_lines}->{$n} // 0 )
+       : int(rand(1000));
+    $self->_save_screenshot("step", "pre", $context->stash->{feature}->{prefix}, "-$n");
     my $log = $self->_log;
     if ($log) {
         push @{$log->{scenario}->{rows}}, {
             step => {
-                text => $context->step->verb_original
+                text => "Step $n: " . $context->step->verb_original
                     . ' ' . $context->step->text,
             },
         };
@@ -272,7 +280,11 @@ sub post_step {
     my ($self, $step, $context, $result) = @_;
 
     return if ! defined $context->stash->{scenario}->{ext_wsl};
-    $self->_save_screenshot("step", "post");
+    my $n = $context->{step}->{line}->{number} //  int(rand(1000));
+    $n = defined $n  # Get step number
+       ? ( $context->stash->{scenario}->{step_lines}->{$n} // 0 )
+       : int(rand(1000));
+    $self->_save_screenshot("step", "post", $context->stash->{feature}->{prefix}, "-$n");
     my $log = $self->_log;
     if ($log) {
         if (ref $result) {
@@ -354,15 +366,13 @@ has _weasel => (is => 'rw',
 
 =cut
 
-my $img_num = 0;
-
 sub _save_screenshot {
-    my ($self, $event, $phase) = @_;
+    my ($self, $event, $phase, $prefix, $img_num) = @_;
 
     return if ! $self->screenshots_dir;
     return if ! $self->screenshot_event_on("$phase-$event");
 
-    my $img_name = "$event-$phase-" . ($img_num++) . '.png';
+    my $img_name = "$prefix-$event-$phase" . ($img_num//'') . '.png';
     my $path_img_name = $self->screenshots_dir . '/' . $img_name;
     if (open my $fh, ">", $path_img_name) {
         $self->_weasel->session->screenshot($fh);
@@ -385,7 +395,9 @@ sub _save_screenshot {
     if ($log) {
         push @{$log->{scenario}->{rows}}, {
             screenshot => {
-                location => $img_name,
+                location => $self->screenshots_dir ne $self->logging_dir
+                            ? $path_img_name
+                            : $img_name,
                 description => "$phase $event: ",
                 classes => [ $event, $phase, "$phase-$event" ],
             },

@@ -15,8 +15,8 @@ use Test::BDD::Cucumber::Model::Line;
 use Test::BDD::Cucumber::Model::Scenario;
 use Test::BDD::Cucumber::Model::Step;
 use Test::BDD::Cucumber::StepContext;
-
 use Test::More;
+use URI::Encode qw(uri_encode);
 
 my $dh = File::Temp->newdir();
 my $dn = $dh->dirname;
@@ -29,9 +29,9 @@ my $ext = Pherkin::Extension::Weasel->new(
         screenshots_dir => $screen_dir,
         screenshot_events => {
             'pre-step' => 0,
-                'post-step' => 0,
-                'pre-scenario' => 0,
-                'post-scenario' => 0,
+            'post-step' => 0,
+            'pre-scenario' => 0,
+            'post-scenario' => 0,
         },
         sessions => {
             selenium => {
@@ -107,6 +107,9 @@ my $feature_stash = {};
 $ext->pre_feature($f, $feature_stash);
 my $content = _flush_and_read_log();
 
+my $dir = ( $log_dir ne $screen_dir )
+        ? uri_encode($screen_dir . '/', {encode_reserved => 1})
+        : '';
 
 ok($ext->_log, q{logger correctly retained});
 ok($ext->_log->{template}, q{logger template processor correctly retained});
@@ -140,7 +143,7 @@ $ext->pre_scenario($s, $feature_stash, $scenario_stash);
 $content = _flush_and_read_log();
 
 
-like($content, qr!<img src="scenario-pre-\d+\.png"!,
+like($content, qr!<img src="${dir}$feature_stash->{prefix}-scenario-pre.png"!,
      q{Pre-scenario screenshot correctly added});
 
 
@@ -168,10 +171,9 @@ $ext->screenshot_on('pre-step', 1);
 $ext->pre_step($f, $context);
 $content = _flush_and_read_log();
 
-
-like($content, qr!<img src="step-pre-\d+\.png"!,
+like($content, qr!<img src="${dir}$feature_stash->{prefix}-step-pre-\d+\.png"!,
      q{Pre-step screenshot correctly added});
-like($content, qr!<td colspan="2"><b>Given step 1</b></td>!,
+like($content, qr!<td colspan="2"><b>Step \d+: Given step 1</b></td>!,
      q{Step 1 correctly included in log output});
 
 
