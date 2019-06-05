@@ -171,14 +171,14 @@ $content = _flush_and_read_log();
 
 like($content, qr!<img src="step-pre-\d+\.png"!,
      q{Pre-step screenshot correctly added});
-like($content, qr!<td>Given step 1</td>!,
+like($content, qr!<td colspan="2"><b>Given step 1</b></td>!,
      q{Step 1 correctly included in log output});
 
 
 $ext->_weasel->session->page->find_all('//div');
 $content = _flush_and_read_log();
 
-like($content, qr!<td>found 2 elements for //div!,
+like($content, qr!<td colspan="2">found 2 elements for //div!,
      q{Logging from driver correctly included in the logs});
 
 

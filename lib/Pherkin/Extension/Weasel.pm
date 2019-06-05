@@ -376,7 +376,8 @@ sub _save_screenshot {
     my $img = Imager->new(); #  Empty image (size is 0 by 0)
     $img->open(file=>$path_img_name,type=>'png'); # Read image from file
     # If image is blank
-    if ($img->getcolorcount() == 1 ) {
+    my $colorcount = $img->getcolorcount();
+    if ( defined $colorcount && $colorcount == 1 ) {
         unlink($path_img_name);
         return;
     }

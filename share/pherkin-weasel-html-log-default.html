@@ -2,6 +2,7 @@
   <head>
     <title>[% feature.title | html %]</title>
     <style>
+      img.step.post.post-step, img.step.pre.pre-step { border: 1px solid black;}
     </style>
   </head>
   <body>
@@ -24,13 +25,11 @@
                  class="[% row.screenshot.classes.join(' ') %]" />
           </td>
 [% ELSIF row.step -%]
-          <td>[% row.step.text | html %]</td>
-          <td></td>
+          <td colspan="2"><b>[% row.step.text | html %]</b></td>
           <td>[% row.step.result | html %]</td>
 [% ELSIF row.log -%]
           <td></td>
-          <td></td>
-          <td>[% row.log.text | html %]</td>
+          <td colspan="2">[% row.log.text | html %]</td>
 [% END -%]
         </tr>
 [% END -%]
