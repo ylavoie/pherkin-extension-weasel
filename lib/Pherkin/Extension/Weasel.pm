@@ -183,7 +183,7 @@ sub pre_feature {
     if ($log) {
         my $feature_log = {
             scenarios => [],
-            filename => $f,
+            filename => $f . '.html',
             title => $feature->name,
             satisfaction => join("\n",
                                  map { $_->content }
