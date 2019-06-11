@@ -179,6 +179,25 @@ sub pre_feature {
     my ($self, $feature, $feature_stash) = @_;
 
     my $log = $self->_log;
+    # Compute step numbers
+    $feature_stash->{line_steps} = {};
+    $feature_stash->{last_step} = 0;
+    my $i = 1;
+    foreach my $scenario (@{$feature->{scenarios}}) {
+        if ( $feature->{background}) {
+            foreach (@{$feature->{background}->{steps}}) {
+                push @{$feature_stash->{line_steps}->{$_->{line}->{number}}}, $i++;
+            }
+        }
+        if ( $scenario->{background} ) {
+            foreach (@{$scenario->{background}->{steps}}) {
+                push @{$feature_stash->{line_steps}->{$_->{line}->{number}}}, $i++;
+            }
+        }
+        foreach (@{$scenario->{steps}}) {
+            push @{$feature_stash->{line_steps}->{$_->{line}->{number}}}, $i++;
+        }
+    }
     my $f = $feature->{document}->{filename} // md5_hex($feature->{name});
     $f =~ s/\//_/g;
     $f =~ s/\.feature//g;
@@ -186,8 +205,8 @@ sub pre_feature {
     if ($log) {
         my $feature_log = {
             scenarios => [],
-            filename => $f . '.html',
             title => $feature->name,
+            filename => $f . '.html',
             satisfaction => join("\n",
                                  map { $_->content }
                                  @{$feature->satisfaction})
@@ -206,8 +225,8 @@ sub post_feature {
 
     my $log = $self->_log;
     if ($log) {
-        $log->{feature} = undef;
         $self->_flush_log;
+        $log->{feature} = undef;
     }
     $feature_stash->{prefix} = undef;
 }
@@ -219,12 +238,6 @@ sub post_feature {
 sub pre_scenario {
     my ($self, $scenario, $feature_stash, $stash) = @_;
 
-    my $i = 1;
-    # Compute step numbers
-    $stash->{step_lines} = {};
-    foreach (@{$scenario->{steps}}) {
-        $stash->{step_lines}->{$_->{line}->{number}} = $i++;
-    }
     if (grep { $_ eq 'weasel'} @{$scenario->tags}) {
         $stash->{ext_wsl} = $self->_weasel->session;
         $self->_weasel->session->start;
@@ -252,8 +265,8 @@ sub post_scenario {
 
     my $log = $self->_log;
     if ($log) {
-        $log->{scenario} = undef;
         $self->_flush_log;
+        $log->{scenario} = undef;
     }
 
     $stash->{ext_wsl}->stop
@@ -263,16 +276,20 @@ sub pre_step {
     my ($self, $step, $context) = @_;
 
     return if ! defined $context->stash->{scenario}->{ext_wsl};
-    my $n = $context->{step}->{line}->{number}; # Get line number
-    $n = defined $n  # Get step number
-       ? ( $context->stash->{scenario}->{step_lines}->{$n} // 0 )
-       : int(rand(1000));
-    $self->_save_screenshot("step", "pre", $context->stash->{feature}->{prefix}, "-$n");
+    my $l = $context->{step}->{line}->{number} // 0; # Get line number
+    my @ls = @{$context->stash->{feature}->{line_steps}->{$l}} ;
+    my $sn;
+    do {
+        $sn = shift @ls;
+    } while ( defined $sn && $sn < $context->stash->{feature}->{last_step} );
+    $sn //= 0;
+    $context->stash->{feature}->{last_step} = $sn;
+    $self->_save_screenshot("step", "pre", $context->stash->{feature}->{prefix}, "-$sn");
     my $log = $self->_log;
     if ($log) {
         push @{$log->{scenario}->{rows}}, {
             step => {
-                text => "Step $n: " . $context->step->verb_original
+                text => "Step $sn at line $l: " . $context->step->verb_original
                     . ' ' . $context->step->text,
             },
         };
@@ -283,11 +300,15 @@ sub post_step {
     my ($self, $step, $context, $fail, $result) = @_;
 
     return if ! defined $context->stash->{scenario}->{ext_wsl};
-    my $n = $context->{step}->{line}->{number} //  int(rand(1000));
-    $n = defined $n  # Get step number
-       ? ( $context->stash->{scenario}->{step_lines}->{$n} // 0 )
-       : int(rand(1000));
-    $self->_save_screenshot("step", "post", $context->stash->{feature}->{prefix}, "-$n");
+    my $l = $context->{step}->{line}->{number} // 0; # Get line number
+    my @ls = @{$context->stash->{feature}->{line_steps}->{$l}} ;
+    my $sn;
+    do {
+        $sn = shift @ls;
+    } while ( defined $sn && $sn < $context->stash->{feature}->{last_step} );
+    $sn //= 0;
+    $context->stash->{feature}->{last_step} = $sn;
+    $self->_save_screenshot("step", "post", $context->stash->{feature}->{prefix}, "-$sn");
     my $log = $self->_log;
     if ($log) {
         if (ref $result) {
