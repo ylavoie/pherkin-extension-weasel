@@ -2,13 +2,25 @@
   <head>
     <title>[% feature.title | html %]</title>
     <style>
-      img.step.post.post-step, img.step.pre.pre-step { border: 1px solid black;}
+      img:hover {
+         max-width: 100%;
+         width: auto;
+         height: auto;
+         box-shadow: 5px 10px 8px grey;
+         border: 1px solid black;
+      }
+      img {
+         width: 30%;
+         height: auto;
+         box-shadow: 5px 10px 8px lightgrey;
+         border: 1px solid lightgrey;
+      }
     </style>
   </head>
   <body>
     <h1 class="feature">[% feature.title | html %]</h1>
     <p>[% feature.satisfaction | html %]</p>
-    [% FOR scenario IN feature.scenarios %]
+[% FOR scenario IN feature.scenarios %]
     <section class="scenario">
       <h2 class="scenario">[% scenario.title | html %]</h2>
       <table>
